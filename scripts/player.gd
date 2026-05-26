@@ -3,8 +3,8 @@ extends CharacterBody2D
 const MAX_SPEED = 150
 const ACCELERATION = 500
 const DECELERATION = 600
-const MAX_JUMP_VELOCITY = -300
-const TIME_TO_REACH_MAX_JUMP = .5
+const JUMP_VELOCITY = -200
+const TIME_TO_REACH_MAX_HEIGHT = .4
 
 var jump_timer := 0.0
 var jump_velocity := 0.0
@@ -27,8 +27,11 @@ func jump_process(delta: float):
 		States.ON_FLOOR:
 			if Input.is_action_just_pressed("jump"):
 				jump_accel_tween = create_tween()
-				jump_accel_tween.tween_method(set_velocityY, 0, MAX_JUMP_VELOCITY, TIME_TO_REACH_MAX_JUMP).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+				jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
 				set_state(States.JUMPING)
+				return
+			if not is_on_floor():
+				set_state(States.FALLING)
 				return
 			jump_timer = 0
 
@@ -40,7 +43,7 @@ func jump_process(delta: float):
 			velocity += get_gravity() * delta
 
 		States.JUMPING:
-			if jump_timer >= TIME_TO_REACH_MAX_JUMP or Input.is_action_just_released("jump"):
+			if jump_timer >= TIME_TO_REACH_MAX_HEIGHT or Input.is_action_just_released("jump"):
 				if jump_accel_tween:
 					jump_accel_tween.kill()
 
@@ -56,7 +59,6 @@ func _physics_process(delta: float) -> void:
 	
 	# Hanlde animation.
 	if not is_on_floor():
-		# Add the gravity.
 		animated_sprite.play("jump")
 	else:
 		# Play idle animation if standing still, else play "run" animation.
