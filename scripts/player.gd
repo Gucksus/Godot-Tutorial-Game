@@ -5,9 +5,10 @@ const ACCELERATION = 500
 const DECELERATION = 600
 const JUMP_VELOCITY = -200
 const TIME_TO_REACH_MAX_HEIGHT = .4
+const JUMP_FORGIVENESS_WINDOW = .03
 
 var jump_timer := 0.0
-var jump_velocity := 0.0
+var fallen_timer := 0.0
 
 @onready var acceleration_tween = get_tree().create_tween()
 @onready var jump_accel_tween = get_tree().create_tween()
@@ -15,6 +16,7 @@ var jump_velocity := 0.0
 
 enum States {
 	ON_FLOOR,
+	JUMP_FORGIVEN,
 	JUMPING,
 	FALLING
 }
@@ -31,9 +33,21 @@ func jump_process(delta: float):
 				set_state(States.JUMPING)
 				return
 			if not is_on_floor():
-				set_state(States.FALLING)
+				set_state(States.JUMP_FORGIVEN)
 				return
 			jump_timer = 0
+			fallen_timer = 0
+
+		States.JUMP_FORGIVEN:
+			if fallen_timer > JUMP_FORGIVENESS_WINDOW:
+				set_state(States.FALLING)
+			if fallen_timer <= JUMP_FORGIVENESS_WINDOW and Input.is_action_just_pressed("jump"):
+				jump_accel_tween = create_tween()
+				jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+				set_state(States.JUMPING)
+				return
+			fallen_timer += delta
+			velocity += get_gravity() * delta
 
 		States.FALLING:
 			if is_on_floor():
