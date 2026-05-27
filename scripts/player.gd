@@ -3,7 +3,7 @@ extends CharacterBody2D
 const MAX_SPEED = 150
 const ACCELERATION = 500
 const DECELERATION = 600
-const JUMP_VELOCITY = -160
+const JUMP_VELOCITY = -170
 const TIME_TO_REACH_MAX_HEIGHT = .4
 const JUMP_FORGIVENESS_WINDOW = .03
 const JUMP_BUFFER_WINDOW = .06
@@ -16,6 +16,7 @@ var double_jumped = false
 @onready var acceleration_tween = get_tree().create_tween()
 @onready var jump_accel_tween = get_tree().create_tween()
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
+@onready var state_label: Label = $StateLabel
 
 enum States {
 	ON_FLOOR,
@@ -25,6 +26,12 @@ enum States {
 	JUMP_BUFFERING
 }
 var current_state: States = States.FALLING: set = set_state
+var previous_state: States = current_state
+
+func update_state_label():
+	if previous_state != current_state:
+		state_label.text = States.find_key(current_state)
+		previous_state = current_state
 
 func initialize_jump():
 	jump_timer = 0
@@ -37,7 +44,7 @@ func initialize_jump():
 
 func state_process(delta: float):
 	print(States.find_key(current_state))
-	if is_on_floor():
+	if is_on_floor_only():
 		set_state(States.ON_FLOOR)
 	match current_state:
 		States.ON_FLOOR:
@@ -89,6 +96,8 @@ func state_process(delta: float):
 				initialize_jump()
 				return
 			jump_timer += delta
+
+	update_state_label()
 
 
 func _physics_process(delta: float) -> void:
