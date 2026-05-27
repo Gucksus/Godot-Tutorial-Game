@@ -3,11 +3,13 @@ extends CharacterBody2D
 const MAX_SPEED = 150
 const ACCELERATION = 500
 const DECELERATION = 600
-const JUMP_VELOCITY = -200
+const JUMP_VELOCITY = -160
 const TIME_TO_REACH_MAX_HEIGHT = .4
 const JUMP_FORGIVENESS_WINDOW = .03
+const JUMP_BUFFER_WINDOW = .06
 
 var jump_timer := 0.0
+var jump_buffer_timer := 0.0
 var fallen_timer := 0.0
 
 @onready var acceleration_tween = get_tree().create_tween()
@@ -18,19 +20,28 @@ enum States {
 	ON_FLOOR,
 	JUMP_FORGIVEN,
 	JUMPING,
-	FALLING
+	FALLING,
+	JUMP_BUFFERING
 }
 var current_state: States = States.FALLING: set = set_state
 
+func initialize_jump():
+	jump_timer = 0
+	jump_buffer_timer = 0
+	jump_accel_tween = create_tween()
+	jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+	set_state(States.JUMPING)
+	position.y -= 1
 
-func jump_process(delta: float):
+
+func state_process(delta: float):
 	print(States.find_key(current_state))
+	if is_on_floor():
+		set_state(States.ON_FLOOR)
 	match current_state:
 		States.ON_FLOOR:
-			if Input.is_action_just_pressed("jump"):
-				jump_accel_tween = create_tween()
-				jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
-				set_state(States.JUMPING)
+			if Input.is_action_just_pressed("jump") or jump_buffer_timer > 0:
+				initialize_jump()
 				return
 			if not is_on_floor():
 				set_state(States.JUMP_FORGIVEN)
@@ -41,33 +52,38 @@ func jump_process(delta: float):
 		States.JUMP_FORGIVEN:
 			if fallen_timer > JUMP_FORGIVENESS_WINDOW:
 				set_state(States.FALLING)
-			if fallen_timer <= JUMP_FORGIVENESS_WINDOW and Input.is_action_just_pressed("jump"):
-				jump_accel_tween = create_tween()
-				jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
-				set_state(States.JUMPING)
+				return
+			elif Input.is_action_just_pressed("jump"):
+				initialize_jump()
 				return
 			fallen_timer += delta
 			velocity += get_gravity() * delta
 
 		States.FALLING:
-			if is_on_floor():
-				velocity.y = 0
-				set_state(States.ON_FLOOR)
+			if Input.is_action_just_pressed("jump"):
+				set_state(States.JUMP_BUFFERING)
+				jump_buffer_timer = JUMP_BUFFER_WINDOW
 				return
 			velocity += get_gravity() * delta
 
+		States.JUMP_BUFFERING:
+			if jump_buffer_timer <= 0:
+				set_state(States.FALLING)
+				return
+			jump_buffer_timer -= delta
+			velocity += get_gravity() * delta
+
 		States.JUMPING:
-			if jump_timer >= TIME_TO_REACH_MAX_HEIGHT or Input.is_action_just_released("jump"):
+			if jump_timer >= TIME_TO_REACH_MAX_HEIGHT or not Input.is_action_pressed("jump") or is_on_ceiling():
 				if jump_accel_tween:
 					jump_accel_tween.kill()
-
 				set_state(States.FALLING)
 				return
 			jump_timer += delta
 
 
 func _physics_process(delta: float) -> void:
-	jump_process(delta)
+	state_process(delta)
 
 	var direction := Input.get_axis("left", "right")
 	

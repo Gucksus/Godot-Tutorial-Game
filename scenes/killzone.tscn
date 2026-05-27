@@ -7,7 +7,7 @@ collision_mask = 2
 script = ExtResource("1_xlapc")
 
 [node name="Timer" type="Timer" parent="." unique_id=1215102658]
-wait_time = 0.6
+wait_time = 0.205
 one_shot = true
 
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
