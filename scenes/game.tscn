@@ -231,6 +231,7 @@ layer_1/tile_data = PackedInt32Array(-655356, 0, 0, -589820, 0, 1, -524284, 0, 1
 
 [node name="Player" parent="." unique_id=1995947279 instance=ExtResource("1_uwrxv")]
 position = Vector2(333, -234)
+floor_max_angle = 0.7853982
 
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=354356500]
 offset = Vector2(0.265, 0)
