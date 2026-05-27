@@ -11,6 +11,7 @@ const JUMP_BUFFER_WINDOW = .06
 var jump_timer := 0.0
 var jump_buffer_timer := 0.0
 var fallen_timer := 0.0
+var double_jumped = false
 
 @onready var acceleration_tween = get_tree().create_tween()
 @onready var jump_accel_tween = get_tree().create_tween()
@@ -40,15 +41,15 @@ func state_process(delta: float):
 		set_state(States.ON_FLOOR)
 	match current_state:
 		States.ON_FLOOR:
+			double_jumped = false
+			jump_timer = 0
+			fallen_timer = 0
 			if Input.is_action_just_pressed("jump") or jump_buffer_timer > 0:
 				initialize_jump()
 				return
 			if not is_on_floor():
 				set_state(States.JUMP_FORGIVEN)
 				return
-			jump_timer = 0
-			fallen_timer = 0
-
 		States.JUMP_FORGIVEN:
 			if fallen_timer > JUMP_FORGIVENESS_WINDOW:
 				set_state(States.FALLING)
@@ -60,6 +61,10 @@ func state_process(delta: float):
 			velocity += get_gravity() * delta
 
 		States.FALLING:
+			if Input.is_action_just_pressed("jump") and not double_jumped:
+				double_jumped = true
+				initialize_jump()
+				return
 			if Input.is_action_just_pressed("jump"):
 				set_state(States.JUMP_BUFFERING)
 				jump_buffer_timer = JUMP_BUFFER_WINDOW
@@ -78,6 +83,10 @@ func state_process(delta: float):
 				if jump_accel_tween:
 					jump_accel_tween.kill()
 				set_state(States.FALLING)
+				return
+			if Input.is_action_just_pressed("jump") and not double_jumped:
+				double_jumped = true
+				initialize_jump()
 				return
 			jump_timer += delta
 
