@@ -11,6 +11,7 @@ const JUMP_BUFFER_WINDOW = .06
 var jump_timer := 0.0
 var jump_buffer_timer := 0.0
 var fallen_timer := 0.0
+var double_jumped = false
 
 @onready var acceleration_tween = get_tree().create_tween()
 @onready var jump_accel_tween = get_tree().create_tween()
@@ -21,7 +22,6 @@ enum States {
 	ON_FLOOR,
 	JUMP_FORGIVEN,
 	JUMPING,
-	DOUBLE_JUMPING,
 	FALLING,
 	JUMP_BUFFERING
 }
@@ -31,7 +31,7 @@ var previous_state: States = current_state
 func update_state_label():
 	if previous_state != current_state:
 		state_label.text = States.find_key(current_state)
-		previous_state = current_state
+		# print(States.find_key(previous_state) + " -> " + States.find_key(current_state))
 
 func initialize_jump():
 	jump_timer = 0
@@ -44,10 +44,11 @@ func initialize_jump():
 
 func state_process(delta: float):
 	print(States.find_key(current_state))
-	if is_on_floor_only():
+	if is_on_floor():
 		set_state(States.ON_FLOOR)
 	match current_state:
 		States.ON_FLOOR:
+			double_jumped = false
 			jump_timer = 0
 			fallen_timer = 0
 			if Input.is_action_just_pressed("jump") or jump_buffer_timer > 0:
@@ -68,13 +69,14 @@ func state_process(delta: float):
 
 		States.FALLING:
 			if Input.is_action_just_pressed("jump"):
-				initialize_jump()
-				set_state(States.DOUBLE_JUMPING)
-				return
-			if Input.is_action_just_pressed("jump"):
-				set_state(States.JUMP_BUFFERING)
-				jump_buffer_timer = JUMP_BUFFER_WINDOW
-				return
+				if not double_jumped:
+					initialize_jump()
+					double_jumped = true
+					return
+				else:
+					set_state(States.JUMP_BUFFERING)
+					jump_buffer_timer = JUMP_BUFFER_WINDOW
+					return
 			velocity += get_gravity() * delta
 
 		States.JUMP_BUFFERING:
@@ -92,15 +94,7 @@ func state_process(delta: float):
 				return
 			if Input.is_action_just_pressed("jump"):
 				initialize_jump()
-				set_state(States.DOUBLE_JUMPING)
-				return
-			jump_timer += delta
-
-		States.DOUBLE_JUMPING:
-			if jump_timer >= TIME_TO_REACH_MAX_HEIGHT or not Input.is_action_pressed("jump") or is_on_ceiling():
-				if jump_accel_tween:
-					jump_accel_tween.kill()
-				set_state(States.FALLING)
+				double_jumped = true
 				return
 			jump_timer += delta
 
@@ -145,6 +139,7 @@ func _physics_process(delta: float) -> void:
 
 
 func set_state(new_state: States):
+	previous_state = current_state
 	current_state = new_state
 
 
