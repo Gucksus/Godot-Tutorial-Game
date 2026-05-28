@@ -4,6 +4,7 @@ const MAX_SPEED = 150
 const ACCELERATION = 500
 const DECELERATION = 600
 const JUMP_VELOCITY = -170
+const MAX_DONWARD_SPEED = 400
 const TIME_TO_REACH_MAX_HEIGHT = .4
 const JUMP_FORGIVENESS_WINDOW = .03
 const JUMP_BUFFER_WINDOW = .06
@@ -18,36 +19,49 @@ var double_jumped = false
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var state_label: Label = $StateLabel
 
-enum States {
+enum Physics_States {
 	ON_FLOOR,
 	JUMP_FORGIVEN,
 	JUMPING,
 	FALLING,
 	JUMP_BUFFERING
 }
-var current_state: States = States.FALLING: set = set_state
-var previous_state: States = current_state
+var current_physics_state: Physics_States = Physics_States.FALLING: set = set_physics_state
+var previous_physics_state: Physics_States = current_physics_state
+
+enum Animation_States {
+	IDLE,
+	RUNNING,
+	JUMPING,
+	ASCENDING,
+	SLOW_FALLING,
+	FALLING,
+	FAST_FALLING,
+	LANDING
+}
+var current_animation_state: Animation_States = Animation_States.IDLE: set = set_animation_state
+
 
 func update_state_label():
-	if previous_state != current_state:
-		state_label.text = States.find_key(current_state)
-		# print(States.find_key(previous_state) + " -> " + States.find_key(current_state))
+	if previous_physics_state != current_physics_state:
+		state_label.text = Physics_States.find_key(current_physics_state)
+		# print(Physics_States.find_key(previous_physics_state) + " -> " + Physics_States.find_key(current_physics_state))
 
 func initialize_jump():
 	jump_timer = 0
 	jump_buffer_timer = 0
 	jump_accel_tween = create_tween()
 	jump_accel_tween.tween_method(set_velocityY, JUMP_VELOCITY, 0, TIME_TO_REACH_MAX_HEIGHT).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
-	set_state(States.JUMPING)
+	set_physics_state(Physics_States.JUMPING)
 	position.y -= 1
 
 
-func state_process(delta: float):
-	print(States.find_key(current_state))
+func physics_process(delta: float):
+	print(Physics_States.find_key(current_physics_state))
 	if is_on_floor():
-		set_state(States.ON_FLOOR)
-	match current_state:
-		States.ON_FLOOR:
+		set_physics_state(Physics_States.ON_FLOOR)
+	match current_physics_state:
+		Physics_States.ON_FLOOR:
 			double_jumped = false
 			jump_timer = 0
 			fallen_timer = 0
@@ -55,42 +69,43 @@ func state_process(delta: float):
 				initialize_jump()
 				return
 			if not is_on_floor():
-				set_state(States.JUMP_FORGIVEN)
+				set_physics_state(Physics_States.JUMP_FORGIVEN)
 				return
-		States.JUMP_FORGIVEN:
+		Physics_States.JUMP_FORGIVEN:
 			if fallen_timer > JUMP_FORGIVENESS_WINDOW:
-				set_state(States.FALLING)
+				set_physics_state(Physics_States.FALLING)
 				return
 			elif Input.is_action_just_pressed("jump"):
 				initialize_jump()
 				return
 			fallen_timer += delta
-			velocity += get_gravity() * delta
+			velocity += 2 * get_gravity() * delta
 
-		States.FALLING:
+		Physics_States.FALLING:
 			if Input.is_action_just_pressed("jump"):
 				if not double_jumped:
 					initialize_jump()
 					double_jumped = true
 					return
 				else:
-					set_state(States.JUMP_BUFFERING)
+					set_physics_state(Physics_States.JUMP_BUFFERING)
 					jump_buffer_timer = JUMP_BUFFER_WINDOW
 					return
-			velocity += get_gravity() * delta
+			if velocity.y < MAX_DONWARD_SPEED:
+				velocity += get_gravity() * delta
 
-		States.JUMP_BUFFERING:
+		Physics_States.JUMP_BUFFERING:
 			if jump_buffer_timer <= 0:
-				set_state(States.FALLING)
+				set_physics_state(Physics_States.FALLING)
 				return
 			jump_buffer_timer -= delta
 			velocity += get_gravity() * delta
 
-		States.JUMPING:
+		Physics_States.JUMPING:
 			if jump_timer >= TIME_TO_REACH_MAX_HEIGHT or not Input.is_action_pressed("jump") or is_on_ceiling():
 				if jump_accel_tween:
 					jump_accel_tween.kill()
-				set_state(States.FALLING)
+				set_physics_state(Physics_States.FALLING)
 				return
 			if Input.is_action_just_pressed("jump"):
 				initialize_jump()
@@ -102,7 +117,7 @@ func state_process(delta: float):
 
 
 func _physics_process(delta: float) -> void:
-	state_process(delta)
+	physics_process(delta)
 
 	var direction := Input.get_axis("left", "right")
 	
@@ -138,9 +153,12 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
-func set_state(new_state: States):
-	previous_state = current_state
-	current_state = new_state
+func set_physics_state(new_state: Physics_States):
+	previous_physics_state = current_physics_state
+	current_physics_state = new_state
+
+func set_animation_state(new_state: Animation_States):
+	current_animation_state = new_state
 
 
 func set_velocityX(value: float):
