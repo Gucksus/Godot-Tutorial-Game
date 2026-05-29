@@ -13,6 +13,8 @@ var jump_timer := 0.0
 var jump_buffer_timer := 0.0
 var fallen_timer := 0.0
 var double_jumped = false
+var direction := 0.0
+var near_ground_velocityY := 0.0
 
 @onready var acceleration_tween = get_tree().create_tween()
 @onready var jump_accel_tween = get_tree().create_tween()
@@ -34,20 +36,19 @@ enum Animation_States {
 	RUNNING,
 	JUMPING,
 	ASCENDING,
-	SLOW_FALLING,
 	FALLING,
-	FAST_FALLING,
 	LANDING
 }
 var current_animation_state: Animation_States = Animation_States.IDLE: set = set_animation_state
 
 
 func update_state_label():
-	if previous_physics_state != current_physics_state:
-		state_label.text = Physics_States.find_key(current_physics_state)
-		# print(Physics_States.find_key(previous_physics_state) + " -> " + Physics_States.find_key(current_physics_state))
+	# state_label.text = Physics_States.find_key(current_physics_state)
+	state_label.text = Animation_States.find_key(current_animation_state)
 
 func initialize_jump():
+	animated_sprite.play("jumping")
+	set_animation_state(Animation_States.JUMPING)
 	jump_timer = 0
 	jump_buffer_timer = 0
 	jump_accel_tween = create_tween()
@@ -56,8 +57,7 @@ func initialize_jump():
 	position.y -= 1
 
 
-func physics_process(delta: float):
-	print(Physics_States.find_key(current_physics_state))
+func jump_process(delta: float):
 	if is_on_floor():
 		set_physics_state(Physics_States.ON_FLOOR)
 	match current_physics_state:
@@ -113,25 +113,70 @@ func physics_process(delta: float):
 				return
 			jump_timer += delta
 
-	update_state_label()
+	if near_ground_velocityY != velocity.y and velocity.y:
+		near_ground_velocityY = velocity.y
 
 
-func _physics_process(delta: float) -> void:
-	physics_process(delta)
+func animation_process():
+	print(Animation_States.find_key(current_animation_state))
+	match current_animation_state:
+		Animation_States.IDLE:
+			if current_physics_state == Physics_States.JUMPING:
+				set_animation_state(Animation_States.JUMPING)
+				return
+			if direction:
+				animated_sprite.play("running")
+				set_animation_state(Animation_States.RUNNING)
+				return
+		
+		Animation_States.JUMPING:
+			if velocity.y >= -140 and velocity.y != 0:
+				animated_sprite.play("ascending")
+				set_animation_state(Animation_States.ASCENDING)
+				return
+				
+		Animation_States.ASCENDING:
+			if current_physics_state == Physics_States.FALLING:
+				animated_sprite.play("slow_falling")
+				set_animation_state(Animation_States.FALLING)
+				return
 
-	var direction := Input.get_axis("left", "right")
-	
-	# Hanlde animation.
-	if not is_on_floor():
-		animated_sprite.play("jump")
-	else:
-		# Play idle animation if standing still, else play "run" animation.
-		if direction == 0:
-			animated_sprite.play("idle")
-		else:
-			animated_sprite.play("run")
+		Animation_States.FALLING:
+			if current_physics_state == Physics_States.ON_FLOOR and near_ground_velocityY > 0:
+				animated_sprite.play("landing")
+				set_animation_state(Animation_States.LANDING)
+				return
+			if velocity.y >= 300:
+				animated_sprite.play("fast_falling")
+				return
+			elif velocity.y >= 200:
+				animated_sprite.play("falling")
+				return
+			else:
+				animated_sprite.play("slow_falling")
 
-	# Handle sprite direction and velocity.
+		Animation_States.LANDING:
+			if direction:
+				animated_sprite.play("running")
+				set_animation_state(Animation_States.RUNNING)
+				return
+			if animated_sprite.animation_finished:
+				animated_sprite.play("idle")
+				set_animation_state(Animation_States.IDLE)
+				return
+
+		Animation_States.RUNNING:
+			if current_physics_state != Physics_States.ON_FLOOR:
+				set_animation_state(Animation_States.JUMPING)
+				return
+			if not direction:
+				animated_sprite.play("idle")
+				set_animation_state(Animation_States.IDLE)
+				return
+
+
+# Handle sprite direction and velocity.
+func horizontal_velocity_process():
 	if direction:
 		if acceleration_tween:
 			acceleration_tween.kill()
@@ -149,6 +194,14 @@ func _physics_process(delta: float) -> void:
 
 		acceleration_tween = create_tween()
 		acceleration_tween.tween_method(set_velocityX, velocity.x, 0, 1).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT)
+
+	
+func _physics_process(delta: float) -> void:
+	direction = Input.get_axis("left", "right")
+	jump_process(delta)
+	animation_process()
+	horizontal_velocity_process()
+	update_state_label()
 		
 	move_and_slide()
 
