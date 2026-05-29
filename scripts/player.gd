@@ -130,7 +130,12 @@ func animation_process():
 				return
 		
 		Animation_States.JUMPING:
-			if velocity.y >= -140 and velocity.y != 0:
+			if current_physics_state == Physics_States.FALLING:
+				animated_sprite.play("slow_falling")
+				set_animation_state(Animation_States.FALLING)
+				return
+			await animated_sprite.animation_finished
+			if velocity.y >= -140 and velocity.y < 0:
 				animated_sprite.play("ascending")
 				set_animation_state(Animation_States.ASCENDING)
 				return
@@ -142,28 +147,29 @@ func animation_process():
 				return
 
 		Animation_States.FALLING:
-			if current_physics_state == Physics_States.ON_FLOOR and near_ground_velocityY > 0:
+			if current_physics_state == Physics_States.ON_FLOOR:
 				animated_sprite.play("landing")
 				set_animation_state(Animation_States.LANDING)
 				return
-			if velocity.y >= 300:
+			if velocity.y >= 400:
 				animated_sprite.play("fast_falling")
 				return
-			elif velocity.y >= 200:
+			elif velocity.y >= 100:
 				animated_sprite.play("falling")
 				return
 			else:
 				animated_sprite.play("slow_falling")
+			
 
 		Animation_States.LANDING:
 			if direction:
 				animated_sprite.play("running")
 				set_animation_state(Animation_States.RUNNING)
 				return
-			if animated_sprite.animation_finished:
-				animated_sprite.play("idle")
-				set_animation_state(Animation_States.IDLE)
-				return
+			await animated_sprite.animation_finished
+			animated_sprite.play("idle")
+			set_animation_state(Animation_States.IDLE)
+			return
 
 		Animation_States.RUNNING:
 			if current_physics_state != Physics_States.ON_FLOOR:

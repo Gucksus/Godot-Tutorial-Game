@@ -402,6 +402,7 @@ text = "SCORE: 0"
 script = ExtResource("9_0tnpc")
 
 [node name="Killzone" parent="." unique_id=703717044 instance=ExtResource("9_vtaks")]
+process_mode = 4
 position = Vector2(528, 135)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Killzone" unique_id=2104648979]
